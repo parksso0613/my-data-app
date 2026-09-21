@@ -48,25 +48,48 @@ if not movies:
 df = pd.DataFrame(movies)
 
 # 숫자가 글자로 오므로 숫자로 바꿔야 정렬과 그래프에 쓸 수 있다
-for col in ["rank", "audiCnt", "audiAcc", "scrnCnt"]:
+for col in ["rank", "rankInten", "audiCnt", "audiAcc", "scrnCnt"]:
     df[col] = pd.to_numeric(df[col])
+
+
+def format_rank_change(val):
+    if val > 0:
+        return f"🔺 +{val}"
+    elif val < 0:
+        return f"🔹 {val}"
+    return "-"
+
+
+df["전날대비"] = df["rankInten"].apply(format_rank_change)
+# 100만 명 이상 시 🏆 트로피 표기 (1_000_000 구문 수정)
+df["영화명_표시"] = df.apply(
+    lambda r: f"{r['movieNm']} 🏆" if r["audiAcc"] >= 1_000_000 else r["movieNm"],
+    axis=1,
+)
 
 # 1위 영화는 지표 카드 세 장으로 크게
 top = df.sort_values("rank").iloc[0]
-st.subheader(f"🥇 1위 — {top['movieNm']}")
+st.subheader(f"🥇 1위 — {top['영화명_표시']}")
 c1, c2, c3 = st.columns(3)
-c1.metric("어제 관객수", f"{top['audiCnt']:,}명")
+c1.metric("선택일 관객수", f"{top['audiCnt']:,}명")
 c2.metric("누적 관객수", f"{top['audiAcc']:,}명")
 c3.metric("스크린수", f"{top['scrnCnt']:,}개")
 
 # 전체 순위표
-st.subheader("📋 어제의 순위표")
-table = df.sort_values("rank")[["rank", "movieNm", "openDt", "audiCnt", "audiAcc", "scrnCnt"]]
-table.columns = ["순위", "영화명", "개봉일", "관객수", "누적관객", "스크린수"]
-st.dataframe(table, hide_index=True, use_container_width=True)
+st.subheader(f"📋 {selected_date} 순위표")
+table = df.sort_values("rank")[
+    ["rank", "전날대비", "영화명_표시", "openDt", "audiCnt", "audiAcc", "scrnCnt"]
+]
+table.columns = ["순위", "전날대비", "영화명", "개봉일", "관객수", "누적관객", "스크린수"]
+st.dataframe(table, hide_index=True, width="stretch")
 
 # 관객수 상위 5편은 막대그래프로
 st.subheader("📊 관객수 상위 5편")
 top5 = df.sort_values("audiCnt", ascending=False).head(5)
-fig = px.bar(top5, x="movieNm", y="audiCnt", labels={"movieNm": "영화명", "audiCnt": "어제 관객수"})
-st.plotly_chart(fig, use_container_width=True)
+fig = px.bar(
+    top5,
+    x="영화명_표시",
+    y="audiCnt",
+    labels={"영화명_표시": "영화명", "audiCnt": "선택일 관객수"},
+)
+st.plotly_chart(fig, width="stretch")
