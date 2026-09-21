@@ -13,7 +13,15 @@ URL = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDail
 # '어제'를 한국 시간 기준으로 계산한다 (배포 서버의 시계는 한국 시간이 아니다)
 KST = datetime.timezone(datetime.timedelta(hours=9))
 yesterday = datetime.datetime.now(KST).date() - datetime.timedelta(days=1)
-target_dt = yesterday.strftime("%Y%m%d")
+
+# 날짜 선택 달력 추가
+selected_date = st.date_input(
+    "조회할 날짜를 선택해 주세요",
+    value=yesterday,
+    max_value=yesterday,
+    help="오늘 및 미래 날짜는 선택할 수 없습니다."
+)
+target_dt = selected_date.strftime("%Y%m%d")
 
 @st.cache_data(ttl=3600)  # 같은 날짜는 한 시간 동안 기억해 두고 API를 다시 부르지 않는다
 def fetch_boxoffice(date_str):
@@ -23,8 +31,8 @@ def fetch_boxoffice(date_str):
     res.raise_for_status()
     return res.json()
 
-st.title("🎬 어제의 박스오피스")
-st.caption(f"조회 날짜: {yesterday} (한국 시간 기준 어제)")
+st.title("🎬 박스오피스 조회")
+st.caption(f"선택한 날짜: {selected_date}")
 
 try:
     data = fetch_boxoffice(target_dt)
@@ -42,7 +50,7 @@ movies = data.get("boxOfficeResult", {}).get("dailyBoxOfficeList", [])
 
 # 영화 목록이 비어서 오면 — 아직 집계 전인 날짜다
 if not movies:
-    st.warning("영화 목록이 비어 있습니다. 아직 집계 전인 날짜는 아닌지 확인해 주세요.")
+    st.warning("그날은 아직 집계 전입니다.")
     st.stop()
 
 df = pd.DataFrame(movies)
